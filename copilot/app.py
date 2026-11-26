@@ -55,13 +55,16 @@ REF = re.compile(r"\[([^\]]{1,60})\]\s*$")
 
 
 def source_index(reference: str, paths: list[Path]) -> int | None:
-    """Resolve a citation only when its document is unambiguous."""
+    """Resolve a citation only when its document is unambiguous.
+    The prompt gives names escaped (material.as_prompt), so a tag may echo 'Offer &quot;final&quot;.pdf':
+    it matches the file as written, or once unescaped."""
     if len(paths) == 1:
         return 0
-    for index, path in enumerate(paths):
-        name = PurePosixPath(str(path).replace("\\", "/")).name
-        if after_name(reference, name) is not None:
-            return index
+    names = [PurePosixPath(str(path).replace("\\", "/")).name for path in paths]
+    for tag in dict.fromkeys((reference, html.unescape(reference))):
+        for index, name in enumerate(names):
+            if after_name(tag, name) is not None:
+                return index
     return None
 
 

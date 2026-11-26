@@ -1,4 +1,5 @@
 from pathlib import Path
+from xml.etree import ElementTree as ET
 from zipfile import ZIP_DEFLATED, ZipFile
 
 import pytest
@@ -608,17 +609,25 @@ def test_as_prompt_includes_document_with_warning(tmp_path):
         '\n'
         '</source>'
     )
-def test_as_prompt_filename_with_quotes_documents_current_behavior():
-    source = material.Source(
-        name='my"notes.txt',
-        kind="text",
-        text="Sample content",
-    )
+def test_as_prompt_escapes_quotes_ampersands_and_angle_brackets_in_the_name():
+    cases = {
+        'Offer "final".pdf': "Offer &quot;final&quot;.pdf",
+        "R&D.md": "R&amp;D.md",
+        "<draft>.md": "&lt;draft&gt;.md",
+        'R&D <draft> "v2".md': "R&amp;D &lt;draft&gt; &quot;v2&quot;.md",
+    }
+    for name, escaped in cases.items():
+        source = material.Source(name=name, kind="text", text="Sample content")
 
-    result = as_prompt([source])
+        result = as_prompt([source])
 
-    assert result == (
-        '<source name="my"notes.txt" kind="text">\n'
-        'Sample content\n'
-        '</source>'
-    )
+        assert result == f'<source name="{escaped}" kind="text">\nSample content\n</source>'
+        opening = result.splitlines()[0]
+        # the opening line parses as an element whose name attribute is the real file name
+        assert ET.fromstring(opening + "</source>").get("name") == name
+
+
+def test_as_prompt_leaves_plain_names_unchanged():
+    source = material.Source(name="Q3 plan (v2) - final_draft.pdf", kind="pdf", text="Revenue")
+
+    assert as_prompt([source]) == '<source name="Q3 plan (v2) - final_draft.pdf" kind="pdf">\nRevenue\n</source>'

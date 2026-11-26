@@ -62,6 +62,27 @@ def test_multi_document_source_handles_windows_path_separators():
     assert source_index("forecast.xlsx, sheet Summary", paths) == 1
 
 
+def test_multi_document_source_resolves_names_with_markup_characters_escaped_or_not():
+    names = ['Offer "final".pdf', "R&D.md", "<draft>.md", "plan.pdf"]
+    paths = [Path(name) for name in names]
+
+    for index, name in enumerate(names):
+        assert source_index(f"{name}, page 2", paths) == index
+        assert source_index(f"{html.escape(name, quote=True)}, page 2", paths) == index
+    assert source_index("Offer &#x27;final&#x27;.pdf, page 2", paths) is None
+
+
+def test_card_tag_citing_an_escaped_name_links_to_that_file(tmp_path, monkeypatch):
+    paths = [tmp_path / 'Offer "final".pdf', tmp_path / "plan.pdf"]
+    monkeypatch.setattr(app.theme, "palette", lambda: {
+        "text": "#111", "tag_fg": "#333", "tag_bg": "#eee", "link": "#06c",
+    })
+
+    rendered = answer_html("- Price is 40k [Offer &quot;final&quot;.pdf, page 2]", paths)
+
+    assert 'href="murmury-source:0?tag=' in rendered
+
+
 def test_source_tag_with_explicit_filename_becomes_a_link(tmp_path, monkeypatch):
     paths = [tmp_path / "plan.pdf", tmp_path / "forecast.xlsx"]
     monkeypatch.setattr(app.theme, "palette", lambda: {

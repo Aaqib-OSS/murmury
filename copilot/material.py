@@ -7,6 +7,7 @@ and PowerPoint slides retain their document order, and presentation notes stay w
 
 from __future__ import annotations
 
+import html
 import posixpath
 from dataclasses import dataclass
 from pathlib import Path
@@ -248,5 +249,7 @@ def load(paths: list[Path]) -> list[Source]:
 
 
 def as_prompt(sources: list[Source]) -> str:
-    """One stable block of text: same files in, same bytes out, so the prompt cache holds."""
-    return "\n\n".join(f'<source name="{s.name}" kind="{s.kind}">\n{s.text}\n</source>' for s in sources)
+    """One stable block of text: same files in, same bytes out, so the prompt cache holds.
+    The name is escaped, so a file called 'Offer "final".pdf' or 'R&D <draft>.md' still gives a valid tag."""
+    return "\n\n".join(f'<source name="{html.escape(s.name, quote=True)}" kind="{s.kind}">\n{s.text}\n</source>'
+                         for s in sources)
